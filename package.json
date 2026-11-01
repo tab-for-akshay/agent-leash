@@ -1,0 +1,15 @@
+{
+ "name": "agent-leash",
+ "private": true,
+ "type": "module",
+ "version": "0.1.0",
+ "license": "MIT",
+ "scripts": {
+  "ops": "node scripts/ops.mjs",
+  "test:contract": "cd contract && cargo test",
+  "build:contract": "cd contract && cargo near build non-reproducible-wasm"
+ },
+ "dependencies": {
+  "near-api-js": "^5.1.1"
+ }
+}
