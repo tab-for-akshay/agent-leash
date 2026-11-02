@@ -23,7 +23,7 @@ Agent Leash assumes the agent **will** be fooled, and puts the rules where the a
   - pause switch, and `revoke_agent_key` (deletes the agent's key: an instant kill switch)
 - **Blocked attempts are logged, not just refused.** A policy breach doesn't panic: it's written to the on-chain log as `Blocked` with the reason, so the owner sees that their agent was attacked.
 - **Storage griefing is capped.** Logging blocked attempts costs storage, which the purse pays for. Without a limit, a stolen agent key could spend its whole gas allowance writing junk requests and lock up the purse's balance as storage stake. `max_requests_per_day` stops that: past the cap the call fails *before* anything is written.
-- **Owner-governed upgrades** (`upgrade`), so the purse account doesn't need a full-access key at all.
+- **Owner-governed upgrades** (`upgrade`), so the purse account doesn't need a full-access key at all. On the live demo that key has been deleted (see "Verify it on-chain").
 - Events are NEP-297 style `EVENT_JSON` logs (`standard: "agent_leash"`).
 
 ## Try it (do X → see Y)
@@ -50,6 +50,19 @@ curl -s https://test.rpc.fastnear.com -H 'content-type: application/json' -d '{"
 # ask the agent
 curl -s https://agent-leash-near.vercel.app/api/agent -H 'content-type: application/json' -d '{"errand":"pay 0.1 NEAR to upsc-fee-desk.agent-leash-owner.testnet for photocopies"}'
 ```
+
+## Verify it on-chain (testnet)
+
+| What | Transaction |
+|---|---|
+| Contract deployed to `agent-leash.testnet` | [6rvCDk…](https://testnet.nearblocks.io/txns/6rvCDkeMHTA1HKEP7BwGgbmzQNt7zViUY31MMmwJw3xD) |
+| Owner installs the agent's function-call key (`request_payment` only, 1 NEAR gas allowance) | [5CFLjA…](https://testnet.nearblocks.io/txns/5CFLjA4PusvSCUoFPUM1LfJNyKjCN8EHtp9v97u8ktyh) |
+| Agent pays an allowlisted fee desk (`Paid`) | [3KSwTu…](https://testnet.nearblocks.io/txns/3KSwTune5KRpkGEtiShxrN5qzWfFmxnaRJDfY5QqFmnM) |
+| Prompt-injected payment to `drain-wallet.testnet` (`Blocked`, logged) | [AHftD8…](https://testnet.nearblocks.io/txns/AHftD8hu63siJYfLAggM13mzoR5mwXi5bszSM7bNfnqn) |
+| Owner upgrades the code through the contract (`upgrade`) | [5t3AN4…](https://testnet.nearblocks.io/txns/5t3AN4aDPZBbbjMzCJiCT5Q5xCA5qtHucE1cYagnNN1U) |
+| The purse's own full-access key is deleted ("locked") | [AsvJRo…](https://testnet.nearblocks.io/txns/AsvJRoLssvBKiMere23YTbvk3pjS6v6m5b7p6ZtxnbDx) |
+
+After the lock, `view_access_key_list` on `agent-leash.testnet` returns exactly one key: the agent's function-call key (`method_names: ["request_payment"]`). Nobody holds a key that can move the purse's money directly. Money moves only through the contract's rules, and only the owner account can approve, change policy, revoke the agent or upgrade the code.
 
 ## How NEAR fits in
 
@@ -100,3 +113,7 @@ Env for the API: `AGENT_KEY` (the agent's function-call private key); optional `
 ## License
 
 MIT
+
+## Stress test
+
+12 attack sections plus a site check, run against the live testnet purse: 24 parallel requests, cap edges to the yoctoNEAR, replayed transactions, allowlist look-alikes, six prompt injections through the agent, storage spam, every owner method from the agent key and from a stranger, and protocol-level key misuse. One real failure was found (parallel requests with one key) and fixed; everything passes now. Pass criteria and results: [docs/STRESS.md](docs/STRESS.md). Re-run: `node scripts/stress.mjs`.
